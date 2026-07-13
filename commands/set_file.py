@@ -1,22 +1,11 @@
-"""
-SET_FILE command implementation.
-"""
-
 from cache.storage import CacheStorage
 from protocol.command import Command
 
 
 class SetFileCommand:
-    """
-    Stores binary data (image, video, pdf, etc.)
-    inside the cache.
-    """
 
     @staticmethod
-    def execute(
-        storage: CacheStorage,
-        command: Command
-    ) -> str:
+    def execute(storage: CacheStorage,command: Command) -> str:
 
         if command.key is None:
             raise ValueError("Missing key")

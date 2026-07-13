@@ -1,18 +1,6 @@
-"""
-Background TTL cleaner.
-"""
-
 import time
 
-
-def cleaner_worker(
-    storage,
-    is_running,
-    interval=1
-):
-    """
-    Periodically removes expired keys.
-    """
+def cleaner_worker(storage,is_running,interval=1):
 
     while is_running():
 

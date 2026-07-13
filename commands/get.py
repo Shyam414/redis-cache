@@ -1,21 +1,11 @@
-"""
-GET command implementation.
-"""
-
 from cache.storage import CacheStorage
 from protocol.command import Command
 
 
 class GetCommand:
-    """
-    Executes the GET command.
-    """
 
     @staticmethod
-    def execute(
-        storage: CacheStorage,
-        command: Command
-    ):
+    def execute(storage: CacheStorage,command: Command):
 
         if command.key is None:
             raise ValueError("Missing key")

@@ -1,7 +1,3 @@
-"""
-TCP server for the cache.
-"""
-
 import socket
 import threading
 

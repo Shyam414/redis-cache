@@ -1,22 +1,3 @@
-"""
-Handles one connected client.
-
-Protocol:
-
-PING
-
-SET name Shyam
-
-GET name
-
-DEL name
-
-SET_FILE photo 245678
-<245678 raw bytes>
-
-GET_FILE photo
-"""
-
 from socket import socket
 
 from protocol.parser import Parser

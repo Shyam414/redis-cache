@@ -1,7 +1,3 @@
-"""
-Represents a parsed command received from a client.
-"""
-
 from dataclasses import dataclass
 from typing import Optional
 

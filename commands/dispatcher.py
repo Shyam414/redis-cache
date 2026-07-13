@@ -1,7 +1,3 @@
-"""
-Dispatches parsed commands to the appropriate command handler.
-"""
-
 from cache.storage import CacheStorage
 from protocol.command import Command
 
@@ -15,9 +11,6 @@ from commands.expire import ExpireCommand
 
 
 class CommandDispatcher:
-    """
-    Routes commands to their respective handlers.
-    """
 
     def __init__(self, storage: CacheStorage):
         self.storage = storage

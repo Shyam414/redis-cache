@@ -1,7 +1,3 @@
-"""
-Interactive cache client.
-"""
-
 import socket
 import os
 

@@ -1,9 +1,3 @@
-"""
-Application entry point.
-
-Starts the cache server.
-"""
-
 from network.server import CacheServer
 
 

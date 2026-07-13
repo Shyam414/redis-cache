@@ -1,8 +1,3 @@
-"""
-LRU eviction policy.
-"""
-
-
 from cache.node import CacheNode
 
 
@@ -11,16 +6,8 @@ class LRUCache:
     def __init__(self):
 
         # Dummy nodes
-        self.head = CacheNode(
-            key="HEAD",
-            value=b""
-        )
-
-        self.tail = CacheNode(
-            key="TAIL",
-            value=b""
-        )
-
+        self.head = CacheNode(key="HEAD",value=b"")
+        self.tail = CacheNode(key="TAIL",value=b"")
         self.head.next = self.tail
         self.tail.prev = self.head
 
@@ -52,10 +39,6 @@ class LRUCache:
 
 
     def remove_least_recent(self):
-
-        """
-        Remove oldest used item.
-        """
 
         if self.tail.prev == self.head:
             return None

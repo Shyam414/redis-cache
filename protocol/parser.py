@@ -1,19 +1,3 @@
-"""
-Parses client requests into Command objects.
-
-Supported Commands
-
-PING
-
-GET <key>
-
-DEL <key>
-
-SET <key> <value>
-
-SET_FILE <key> <size>
-"""
-
 from protocol.command import Command
 
 

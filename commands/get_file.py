@@ -1,7 +1,3 @@
-"""
-GET_FILE command implementation.
-"""
-
 from cache.storage import CacheStorage
 from protocol.command import Command
 

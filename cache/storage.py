@@ -7,10 +7,7 @@ from cache.lru import LRUCache
 
 class CacheStorage:
 
-    def __init__(
-        self,
-        max_memory: int = 100 * 1024 * 1024,
-    ):
+    def __init__(self,max_memory: int = 100 * 1024 * 1024,):
 
         # Maximum cache size (bytes)
         self.max_memory = max_memory
@@ -24,13 +21,7 @@ class CacheStorage:
         # LRU manager
         self.lru = LRUCache()
 
-    def set(
-        self,
-        key: str,
-        value: bytes,
-        data_type: str = "TEXT",
-        ttl: Optional[int] = None
-    ) -> None:
+    def set(self,key: str,value: bytes,data_type: str = "TEXT",ttl: Optional[int] = None) -> None:
 
         value_size = len(value)
 
@@ -44,10 +35,6 @@ class CacheStorage:
 
         if ttl is not None:
             expiry_time = time.time() + ttl
-
-        # -------------------------
-        # Update Existing Key
-        # -------------------------
 
         if key in self.cache:
 
