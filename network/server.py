@@ -24,7 +24,7 @@ class CacheServer:
 
         # Shared cache
         self.storage = CacheStorage(
-            max_memory=100 * 1024 * 1024
+            max_memory=10 * 1024 * 1024
         )
 
         # Dispatcher
