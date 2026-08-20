@@ -6,9 +6,9 @@ class DeleteCommand:
 
     @staticmethod
     def execute(storage: CacheStorage, command: Command) -> str:
-        """
-        Deletes a key from the cache.
-        """
+
+        if command.key is None:
+            raise ValueError("Missing key")
 
         deleted = storage.delete(command.key)
 

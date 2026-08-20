@@ -7,7 +7,7 @@ class GetFileCommand:
     @staticmethod
     def execute(
         storage: CacheStorage,
-        command: Command
+        command: Command,
     ):
 
         if command.key is None:
@@ -18,7 +18,6 @@ class GetFileCommand:
         if node is None:
             return None
 
-        # Don't allow GET_FILE on text values
         if node.data_type != "FILE":
             raise ValueError(
                 "Key does not contain a file."

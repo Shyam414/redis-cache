@@ -5,7 +5,10 @@ from protocol.command import Command
 class SetFileCommand:
 
     @staticmethod
-    def execute(storage: CacheStorage,command: Command) -> str:
+    def execute(
+        storage: CacheStorage,
+        command: Command,
+    ) -> str:
 
         if command.key is None:
             raise ValueError("Missing key")
@@ -16,7 +19,8 @@ class SetFileCommand:
         storage.set(
             command.key,
             command.value,
-            data_type="FILE"
+            data_type="FILE",
+            ttl=command.ttl,
         )
 
         return "FILE STORED"

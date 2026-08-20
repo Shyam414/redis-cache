@@ -1,11 +1,14 @@
-import time
 from cache.storage import CacheStorage
 from protocol.command import Command
 
 
 class ExpireCommand:
+
     @staticmethod
-    def execute(storage: CacheStorage,command: Command):
+    def execute(
+        storage: CacheStorage,
+        command: Command,
+    ):
 
         if command.key is None:
             raise ValueError("Missing key")
@@ -13,11 +16,12 @@ class ExpireCommand:
         if command.ttl is None:
             raise ValueError("Missing TTL")
 
-        node = storage.get_node(command.key)
+        if command.ttl < 0:
+            raise ValueError("TTL cannot be negative")
 
-        if node is None:
-            return 0
+        updated = storage.expire(
+            command.key,
+            command.ttl,
+        )
 
-        node.expiry_time = (time.time()+command.ttl)
-
-        return 1
+        return 1 if updated else 0
