@@ -31,4 +31,4 @@ class CacheNode:
         if self.expiry_time is None:
             return False
 
-        return time.time() > self.expiry_time
+        return time.time() >= self.expiry_time

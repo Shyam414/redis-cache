@@ -1,4 +1,5 @@
 from typing import Optional
+import threading
 import time
 
 from cache.node import CacheNode
@@ -7,21 +8,23 @@ from cache.lru import LRUCache
 
 class CacheStorage:
 
-    def __init__(self,max_memory: int = 100 * 1024 * 1024,):
-
-        # Maximum cache size (bytes)
+    def __init__(
+        self,
+        max_memory: int = 100 * 1024 * 1024,
+    ):
         self.max_memory = max_memory
-
-        # Currently used memory
         self.current_memory = 0
-
-        # key -> CacheNode
         self.cache: dict[str, CacheNode] = {}
-
-        # LRU manager
         self.lru = LRUCache()
+        self.lock = threading.RLock()
 
-    def set(self,key: str,value: bytes,data_type: str = "TEXT",ttl: Optional[int] = None) -> None:
+    def set(
+        self,
+        key: str,
+        value: bytes,
+        data_type: str = "TEXT",
+        ttl: Optional[int] = None,
+    ) -> None:
 
         value_size = len(value)
 
@@ -31,177 +34,206 @@ class CacheStorage:
                 f"Cache limit = {self.max_memory} bytes."
             )
 
-        expiry_time = None
+        expiry_time = (
+            time.time() + ttl
+            if ttl is not None
+            else None
+        )
 
-        if ttl is not None:
-            expiry_time = time.time() + ttl
+        with self.lock:
 
-        if key in self.cache:
+            node = self.cache.get(key)
 
-            node = self.cache[key]
+            if node is not None:
 
-            # Calculate memory after update
-            new_memory = (
-                self.current_memory
-                - node.size
-                + value_size
-            )
+                self.lru.remove(node)
 
-            # Evict other keys if required
-            while new_memory > self.max_memory:
+                self.current_memory -= node.size
 
+                while (
+                    self.current_memory + value_size
+                    > self.max_memory
+                ):
+                    removed = self.lru.remove_least_recent()
+
+                    if removed is None:
+                        break
+
+                    self.current_memory -= removed.size
+                    self.cache.pop(removed.key, None)
+
+                node.value = value
+                node.size = value_size
+                node.data_type = data_type
+                node.expiry_time = expiry_time
+
+                self.current_memory += value_size
+                self.lru.add_to_front(node)
+
+                return
+
+            while (
+                self.current_memory + value_size
+                > self.max_memory
+            ):
                 removed = self.lru.remove_least_recent()
 
                 if removed is None:
                     break
 
-                # Don't evict the same node
-                if removed.key == key:
-                    self.lru.add_to_front(removed)
-                    break
-
-                print(f"Evicted: {removed.key}")
-
                 self.current_memory -= removed.size
+                self.cache.pop(removed.key, None)
 
-                del self.cache[removed.key]
+            node = CacheNode(
+                key=key,
+                value=value,
+                data_type=data_type,
+                size=value_size,
+                expiry_time=expiry_time,
+            )
 
-                new_memory = (
-                    self.current_memory
-                    - node.size
-                    + value_size
-                )
-
-            self.current_memory -= node.size
-
-            node.value = value
-            node.size = value_size
-            node.data_type = data_type
-            node.expiry_time = expiry_time
-
+            self.cache[key] = node
             self.current_memory += value_size
-
-            self.lru.move_to_front(node)
-
-            return
-
-        # -------------------------
-        # New Key
-        # -------------------------
-
-        while (
-            self.current_memory + value_size
-            > self.max_memory
-        ):
-
-            removed = self.lru.remove_least_recent()
-
-            if removed is None:
-                break
-
-            print(f"Evicted: {removed.key}")
-
-            self.current_memory -= removed.size
-
-            del self.cache[removed.key]
-
-        node = CacheNode(
-            key=key,
-            value=value,
-            data_type=data_type,
-            size=value_size,
-            expiry_time=expiry_time
-        )
-
-        self.cache[key] = node
-
-        self.current_memory += value_size
-
-        self.lru.add_to_front(node)
+            self.lru.add_to_front(node)
 
     def get(self, key: str) -> Optional[bytes]:
 
-        node = self.cache.get(key)
+        with self.lock:
 
-        if node is None:
-            return None
+            node = self.cache.get(key)
 
-        if node.is_expired():
+            if node is None:
+                return None
 
-            self.delete(key)
+            if node.is_expired():
+                self._delete_node(node)
+                return None
 
-            return None
+            self.lru.move_to_front(node)
 
-        self.lru.move_to_front(node)
-
-        return node.value
+            return node.value
 
     def get_node(self, key: str) -> Optional[CacheNode]:
 
-        node = self.cache.get(key)
+        with self.lock:
 
-        if node is None:
-            return None
+            node = self.cache.get(key)
 
-        if node.is_expired():
+            if node is None:
+                return None
 
-            self.delete(key)
+            if node.is_expired():
+                self._delete_node(node)
+                return None
 
-            return None
+            self.lru.move_to_front(node)
 
-        self.lru.move_to_front(node)
-
-        return node
+            return node
 
     def delete(self, key: str) -> bool:
 
-        node = self.cache.get(key)
+        with self.lock:
 
-        if node is None:
-            return False
+            node = self.cache.get(key)
 
-        self.lru.remove(node)
+            if node is None:
+                return False
 
-        self.current_memory -= node.size
+            self._delete_node(node)
 
-        del self.cache[key]
-
-        return True
+            return True
 
     def exists(self, key: str) -> bool:
 
-        return self.get_node(key) is not None
+        with self.lock:
+
+            node = self.cache.get(key)
+
+            if node is None:
+                return False
+
+            if node.is_expired():
+                self._delete_node(node)
+                return False
+
+            return True
 
     def size(self) -> int:
 
-        return len(self.keys())
+        with self.lock:
+            self._remove_expired()
+            return len(self.cache)
 
     def memory_usage(self) -> int:
 
-        return self.current_memory
+        with self.lock:
+            return self.current_memory
 
     def clear(self) -> None:
 
-        self.cache.clear()
-
-        self.current_memory = 0
-
-        self.lru = LRUCache()
+        with self.lock:
+            self.cache.clear()
+            self.current_memory = 0
+            self.lru = LRUCache()
 
     def keys(self) -> list[str]:
 
-        valid_keys = []
+        with self.lock:
+            self._remove_expired()
+            return list(self.cache.keys())
 
-        for key in list(self.cache.keys()):
+    def expire(
+        self,
+        key: str,
+        ttl: int,
+    ) -> bool:
 
-            node = self.cache[key]
+        with self.lock:
+
+            node = self.cache.get(key)
+
+            if node is None:
+                return False
 
             if node.is_expired():
+                self._delete_node(node)
+                return False
 
-                self.delete(key)
+            node.expiry_time = time.time() + ttl
 
-                continue
+            return True
 
-            valid_keys.append(key)
+    def remove_expired(self) -> int:
 
-        return valid_keys
+        with self.lock:
+            return self._remove_expired()
+
+    def _delete_node(
+        self,
+        node: CacheNode,
+    ) -> None:
+
+        existing = self.cache.get(node.key)
+
+        if existing is not node:
+            return
+
+        self.lru.remove(node)
+        self.current_memory -= node.size
+        del self.cache[node.key]
+
+    def _remove_expired(self) -> int:
+
+        expired_keys = [
+            key
+            for key, node in self.cache.items()
+            if node.is_expired()
+        ]
+
+        for key in expired_keys:
+            node = self.cache.get(key)
+
+            if node is not None and node.is_expired():
+                self._delete_node(node)
+
+        return len(expired_keys)
