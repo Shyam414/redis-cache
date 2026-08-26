@@ -92,11 +92,7 @@ def handle_client(
                             "Invalid file size."
                         )
 
-                    if (
-                        command.file_size
-                        > MAX_FILE_SIZE
-                    ):
-
+                    if (command.file_size> MAX_FILE_SIZE):
                         raise ValueError(
                             "File too large."
                         )
