@@ -96,12 +96,10 @@ class CacheStorage:
             self.current_memory += value_size
             self.lru.add_to_front(node)
 
-    def get(self, key: str) -> Optional[bytes]:
+    def get_text(self,key: str,) -> str | None:
 
         with self.lock:
-
             node = self.cache.get(key)
-
             if node is None:
                 return None
 
@@ -109,27 +107,34 @@ class CacheStorage:
                 self._delete_node(node)
                 return None
 
+            if node.data_type != "TEXT":
+                raise ValueError(
+                    "Key contains binary data. "
+                    "Use GET_FILE."
+                )
+            self.lru.move_to_front(node)
+
+            return node.value.decode("utf-8")
+
+    def get_file(self,key: str,) -> bytes | None:
+
+        with self.lock:
+            node = self.cache.get(key)
+            if node is None:
+                return None
+
+            if node.is_expired():
+                self._delete_node(node)
+                return None
+
+            if node.data_type != "FILE":
+                raise ValueError(
+                    "Key does not contain a file."
+                )
             self.lru.move_to_front(node)
 
             return node.value
-
-    def get_node(self, key: str) -> Optional[CacheNode]:
-
-        with self.lock:
-
-            node = self.cache.get(key)
-
-            if node is None:
-                return None
-
-            if node.is_expired():
-                self._delete_node(node)
-                return None
-
-            self.lru.move_to_front(node)
-
-            return node
-
+    
     def delete(self, key: str) -> bool:
 
         with self.lock:

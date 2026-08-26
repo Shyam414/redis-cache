@@ -118,7 +118,7 @@ class CacheServer:
 
                     raise
 
-                client_socket.settimeout(30)
+                client_socket.settimeout(120)
 
                 with self.clients_lock:
                     self.client_sockets.add(client_socket)

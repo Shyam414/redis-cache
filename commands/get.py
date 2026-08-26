@@ -5,17 +5,19 @@ from protocol.command import Command
 class GetCommand:
 
     @staticmethod
-    def execute(storage: CacheStorage, command: Command):
+    def execute(
+        storage: CacheStorage,
+        command: Command,
+    ):
 
         if command.key is None:
             raise ValueError("Missing key")
 
-        node = storage.get_node(command.key)
+        value = storage.get_text(
+            command.key
+        )
 
-        if node is None:
+        if value is None:
             return "NULL"
 
-        if node.data_type != "TEXT":
-            return "ERROR: Key contains binary data. Use GET_FILE."
-
-        return node.value.decode("utf-8")
+        return value

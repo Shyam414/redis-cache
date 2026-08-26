@@ -5,11 +5,24 @@ import socket
 HOST = "127.0.0.1"
 PORT = 6379
 
+MAX_FILE_SIZE = 10 * 1024 * 1024
+SOCKET_TIMEOUT = 30
 
-def recv_exact(reader, size):
+
+def recv_exact(
+    reader,
+    size: int,
+) -> bytes:
 
     if size < 0:
-        raise ValueError("Invalid file size")
+        raise ValueError(
+            "Invalid file size"
+        )
+
+    if size > MAX_FILE_SIZE:
+        raise ValueError(
+            "File exceeds maximum allowed size"
+        )
 
     data = bytearray()
 
@@ -29,13 +42,40 @@ def recv_exact(reader, size):
     return bytes(data)
 
 
-def send_line(writer, text: str):
+def send_line(
+    writer,
+    text: str,
+) -> None:
 
     writer.write(
-        (text + "\n").encode("utf-8")
+        (text + "\n").encode(
+            "utf-8"
+        )
     )
 
     writer.flush()
+
+
+def read_response(
+    reader,
+) -> str:
+
+    response = reader.readline()
+
+    if not response:
+        raise ConnectionError(
+            "Server disconnected"
+        )
+
+    try:
+        return response.decode(
+            "utf-8"
+        ).strip()
+
+    except UnicodeDecodeError:
+        raise ValueError(
+            "Invalid UTF-8 response from server"
+        )
 
 
 def main():
@@ -45,18 +85,30 @@ def main():
         socket.SOCK_STREAM,
     )
 
+    client.settimeout(
+        SOCKET_TIMEOUT
+    )
+
     reader = None
     writer = None
 
     try:
 
-        client.connect((HOST, PORT))
+        client.connect(
+            (HOST, PORT)
+        )
 
-        reader = client.makefile("rb")
-        writer = client.makefile("wb")
+        reader = client.makefile(
+            "rb"
+        )
+
+        writer = client.makefile(
+            "wb"
+        )
 
         print(
-            f"Connected to Cache Server ({HOST}:{PORT})"
+            f"Connected to Cache Server "
+            f"({HOST}:{PORT})"
         )
 
         print()
@@ -74,7 +126,9 @@ def main():
 
         while True:
 
-            command = input(">> ").strip()
+            command = input(
+                ">> "
+            ).strip()
 
             if not command:
                 continue
@@ -82,97 +136,209 @@ def main():
             if command.lower() == "exit":
                 break
 
-            parts = command.split(maxsplit=2)
+            parts = command.split(
+                maxsplit=2
+            )
 
-            if parts[0].lower() == "upload":
+            # -------------------------
+            # Upload file
+            # -------------------------
+
+            if (
+                parts[0].lower()
+                == "upload"
+            ):
 
                 if len(parts) != 3:
+
                     print(
-                        "Usage: upload <key> <file_path>"
+                        "Usage: "
+                        "upload <key> <file_path>"
                     )
+
                     continue
 
                 key = parts[1]
-                path = parts[2].strip('"')
 
-                if not os.path.isfile(path):
-                    print("File not found.")
+                path = parts[2].strip(
+                    '"'
+                )
+
+                if not os.path.isfile(
+                    path
+                ):
+
+                    print(
+                        "File not found."
+                    )
+
                     continue
 
-                with open(path, "rb") as file:
+                file_size = os.path.getsize(
+                    path
+                )
+
+                if file_size < 0:
+
+                    print(
+                        "Invalid file size."
+                    )
+
+                    continue
+
+                if (
+                    file_size
+                    > MAX_FILE_SIZE
+                ):
+
+                    print(
+                        "File exceeds maximum "
+                        "allowed size."
+                    )
+
+                    continue
+
+                # Read file after validation
+
+                with open(
+                    path,
+                    "rb",
+                ) as file:
+
                     data = file.read()
+
+                # Send file header
 
                 send_line(
                     writer,
-                    f"SET_FILE {key} {len(data)}",
+                    f"SET_FILE "
+                    f"{key} "
+                    f"{file_size}",
                 )
 
-                writer.write(data)
+                # Send raw file bytes
+
+                writer.write(
+                    data
+                )
+
                 writer.flush()
 
-                response = reader.readline()
-
-                if not response:
-                    raise ConnectionError(
-                        "Server disconnected"
-                    )
+                response = read_response(
+                    reader
+                )
 
                 print(
-                    response.decode("utf-8").strip()
+                    response
                 )
 
                 continue
 
-            if parts[0].lower() == "download":
+            # -------------------------
+            # Download file
+            # -------------------------
+
+            if (
+                parts[0].lower()
+                == "download"
+            ):
 
                 if len(parts) != 3:
+
                     print(
-                        "Usage: download <key> <save_path>"
+                        "Usage: "
+                        "download <key> <save_path>"
                     )
+
                     continue
 
                 key = parts[1]
-                save_path = parts[2].strip('"')
+
+                save_path = parts[2].strip(
+                    '"'
+                )
 
                 send_line(
                     writer,
                     f"GET_FILE {key}",
                 )
 
-                header = reader.readline()
+                # Read file size header
 
-                if not header:
-                    raise ConnectionError(
-                        "Server disconnected"
-                    )
-
-                header = header.decode(
-                    "utf-8"
-                ).strip()
+                header = read_response(
+                    reader
+                )
 
                 if header == "NULL":
-                    print("File not found.")
+
+                    print(
+                        "File not found."
+                    )
+
+                    continue
+
+                if header.startswith(
+                    "ERROR:"
+                ):
+
+                    print(
+                        header
+                    )
+
                     continue
 
                 try:
-                    file_size = int(header)
-                except ValueError:
-                    print(
-                        f"Invalid server response: {header}"
+
+                    file_size = int(
+                        header
                     )
-                    continue
+
+                except ValueError:
+
+                    print(
+                        "Invalid server response: "
+                        f"{header}"
+                    )
+
+                    break
 
                 if file_size < 0:
-                    print("Invalid file size.")
-                    continue
+
+                    print(
+                        "Invalid file size."
+                    )
+
+                    break
+
+                if (
+                    file_size
+                    > MAX_FILE_SIZE
+                ):
+
+                    print(
+                        "Server returned a file "
+                        "larger than the allowed limit."
+                    )
+
+                    break
+
+                # Receive exactly file_size bytes
 
                 file_data = recv_exact(
                     reader,
                     file_size,
                 )
 
-                with open(save_path, "wb") as file:
-                    file.write(file_data)
+                # Save file
+
+                with open(
+                    save_path,
+                    "wb",
+                ) as file:
+
+                    file.write(
+                        file_data
+                    )
 
                 print(
                     f"Saved to {save_path}"
@@ -180,59 +346,75 @@ def main():
 
                 continue
 
+            # -------------------------
+            # Normal command
+            # -------------------------
+
             send_line(
                 writer,
                 command,
             )
 
-            response = reader.readline()
-
-            if not response:
-                raise ConnectionError(
-                    "Server disconnected"
-                )
+            response = read_response(
+                reader
+            )
 
             print(
-                response.decode("utf-8").strip()
+                response
             )
 
     except KeyboardInterrupt:
 
-        print("\nClosing client...")
+        print(
+            "\nClosing client..."
+        )
 
     except (
         ConnectionError,
         OSError,
         ValueError,
+        socket.timeout,
     ) as error:
 
-        print(f"Error: {error}")
+        print(
+            f"Error: {error}"
+        )
 
     finally:
 
-        print("Client disconnected")
+        print(
+            "Client disconnected"
+        )
 
         if reader is not None:
+
             try:
                 reader.close()
+
             except OSError:
                 pass
 
         if writer is not None:
+
             try:
                 writer.close()
+
             except OSError:
                 pass
 
         try:
+
             client.shutdown(
                 socket.SHUT_RDWR
             )
+
         except OSError:
             pass
 
         try:
+
             client.close()
+
         except OSError:
             pass
 

@@ -13,14 +13,11 @@ class GetFileCommand:
         if command.key is None:
             raise ValueError("Missing key")
 
-        node = storage.get_node(command.key)
+        file_data = storage.get_file(
+            command.key
+        )
 
-        if node is None:
+        if file_data is None:
             return None
 
-        if node.data_type != "FILE":
-            raise ValueError(
-                "Key does not contain a file."
-            )
-
-        return node.value
+        return file_data
