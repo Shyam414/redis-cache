@@ -34,6 +34,9 @@ class CacheStorage:
                 f"Cache limit = {self.max_memory} bytes."
             )
 
+        if data_type == "FILE" and ttl is None:
+            ttl = 24 * 60 * 60  # 1day
+
         expiry_time = (
             time.time() + ttl
             if ttl is not None
